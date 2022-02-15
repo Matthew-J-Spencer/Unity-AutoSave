@@ -34,8 +34,7 @@ namespace Tarodev {
             while (true) {
                 if (_config != null) return;
 
-                var configGuids = AssetDatabase.FindAssets(nameof(AutoSaveConfig));
-                if (configGuids.Length > 1) Debug.LogWarning("Multiple auto save config assets found. Delete one.");
+                var configGuids = GetConfigIds();
 
                 if (configGuids.Length == 0) {
                     AssetDatabase.CreateAsset(CreateInstance<AutoSaveConfig>(), $"Assets/{nameof(AutoSaveConfig)}.asset");
@@ -50,6 +49,12 @@ namespace Tarodev {
             }
         }
 
+        private static string[] GetConfigIds() {
+            var configGuids = AssetDatabase.FindAssets(nameof(AutoSaveConfig));
+            if (configGuids.Length > 1) Debug.LogWarning("Multiple auto save config assets found. Delete one.");
+            return configGuids;
+        }
+        
         private static void CancelTask() {
             if (_task == null) return;
             _tokenSource.Cancel();
@@ -58,7 +63,8 @@ namespace Tarodev {
 
         private static async Task SaveInterval(CancellationToken token) {
             while (!token.IsCancellationRequested) {
-                await Task.Delay(_config.Frequency * 1000, token);
+                await Task.Delay(_config.Frequency * 1000 * 60, token);
+                if(_config == null) FetchConfig();
                 if (!_config.Enabled || Application.isPlaying) continue;
 
                 // Don't continuously save while unfocused. Once is enough
@@ -73,6 +79,14 @@ namespace Tarodev {
             }
         }
 
+        [MenuItem("Window/Auto save/Find config")]
+        public static void ShowConfig() {
+            FetchConfig();
+
+            var configGuids = GetConfigIds();
+            EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<AutoSaveConfig>(AssetDatabase.GUIDToAssetPath(configGuids[0])).GetInstanceID());
+        }
+
         public override void OnInspectorGUI() {
             DrawDefaultInspector();
             EditorGUILayout.Space();
@@ -82,12 +96,13 @@ namespace Tarodev {
 
     public class AutoSaveConfig : ScriptableObject {
         [Tooltip("Enable auto save functionality")]
-        public bool Enabled = true;
+        public bool Enabled;
 
-        [Tooltip("The frequency in seconds auto save will activate"), Min(10)]
-        public int Frequency = 10;
+        [Tooltip("The frequency in minutes auto save will activate"), Min(1)]
+        public int Frequency = 1;
 
         [Tooltip("Log a message every time the scene is auto saved")]
-        public bool Logging = false;
+        public bool Logging;
     }
+    
 }
