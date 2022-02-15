@@ -19,7 +19,6 @@ namespace Tarodev {
         private static AutoSaveConfig _config;
         private static CancellationTokenSource _tokenSource;
         private static Task _task;
-        private static bool _savedWhileInactive;
 
         [InitializeOnLoadMethod]
         private static void OnEnable() {
@@ -54,7 +53,7 @@ namespace Tarodev {
             if (configGuids.Length > 1) Debug.LogWarning("Multiple auto save config assets found. Delete one.");
             return configGuids;
         }
-        
+
         private static void CancelTask() {
             if (_task == null) return;
             _tokenSource.Cancel();
@@ -64,15 +63,10 @@ namespace Tarodev {
         private static async Task SaveInterval(CancellationToken token) {
             while (!token.IsCancellationRequested) {
                 await Task.Delay(_config.Frequency * 1000 * 60, token);
-                if(_config == null) FetchConfig();
-                if (!_config.Enabled || Application.isPlaying) continue;
+                if (_config == null) FetchConfig();
 
-                // Don't continuously save while unfocused. Once is enough
-                if (!UnityEditorInternal.InternalEditorUtility.isApplicationActive) {
-                    if (_savedWhileInactive) continue;
-                    _savedWhileInactive = true;
-                }
-                else _savedWhileInactive = false;
+                if (!_config.Enabled || Application.isPlaying || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling) continue;
+                if (!UnityEditorInternal.InternalEditorUtility.isApplicationActive) continue;
 
                 EditorSceneManager.SaveOpenScenes();
                 if (_config.Logging) Debug.Log($"Auto-saved at {DateTime.Now:h:mm:ss tt}");
@@ -104,5 +98,4 @@ namespace Tarodev {
         [Tooltip("Log a message every time the scene is auto saved")]
         public bool Logging;
     }
-    
 }
