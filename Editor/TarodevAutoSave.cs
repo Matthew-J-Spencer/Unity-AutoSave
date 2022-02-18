@@ -62,9 +62,9 @@ namespace Tarodev {
 
         private static async Task SaveInterval(CancellationToken token) {
             while (!token.IsCancellationRequested) {
-                await Task.Delay(_config.Frequency * 1000 * 60, token);
                 if (_config == null) FetchConfig();
-
+                await Task.Delay(_config.Frequency * 1000 * 60, token);
+                
                 if (!_config.Enabled || Application.isPlaying || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling) continue;
                 if (!UnityEditorInternal.InternalEditorUtility.isApplicationActive) continue;
 
