@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -21,7 +22,7 @@ namespace Tarodev {
         private static Task _task;
 
         [InitializeOnLoadMethod]
-        private static void OnEnable() {
+        private static void OnInitialize() {
             FetchConfig();
             CancelTask();
 
@@ -33,25 +34,24 @@ namespace Tarodev {
             while (true) {
                 if (_config != null) return;
 
-                var configGuids = GetConfigIds();
+                var path = GetConfigPath();
 
-                if (configGuids.Length == 0) {
+                if (path == null) {
                     AssetDatabase.CreateAsset(CreateInstance<AutoSaveConfig>(), $"Assets/{nameof(AutoSaveConfig)}.asset");
                     Debug.Log("A config file has been created at the root of your project.<b> You can move this anywhere you'd like.</b>");
                     continue;
                 }
 
-                var path = AssetDatabase.GUIDToAssetPath(configGuids[0]);
                 _config = AssetDatabase.LoadAssetAtPath<AutoSaveConfig>(path);
 
                 break;
             }
         }
 
-        private static string[] GetConfigIds() {
-            var configGuids = AssetDatabase.FindAssets(nameof(AutoSaveConfig));
-            if (configGuids.Length > 1) Debug.LogWarning("Multiple auto save config assets found. Delete one.");
-            return configGuids;
+        private static string GetConfigPath() {
+            var paths = AssetDatabase.FindAssets(nameof(AutoSaveConfig)).Select(AssetDatabase.GUIDToAssetPath).Where(c => c.EndsWith(".asset")).ToList();
+            if (paths.Count > 1) Debug.LogWarning("Multiple auto save config assets found. Delete one.");
+            return paths.FirstOrDefault();
         }
 
         private static void CancelTask() {
@@ -62,9 +62,9 @@ namespace Tarodev {
 
         private static async Task SaveInterval(CancellationToken token) {
             while (!token.IsCancellationRequested) {
-                if (_config == null) FetchConfig();
                 await Task.Delay(_config.Frequency * 1000 * 60, token);
-                
+                if (_config == null) FetchConfig();
+
                 if (!_config.Enabled || Application.isPlaying || BuildPipeline.isBuildingPlayer || EditorApplication.isCompiling) continue;
                 if (!UnityEditorInternal.InternalEditorUtility.isApplicationActive) continue;
 
@@ -72,13 +72,13 @@ namespace Tarodev {
                 if (_config.Logging) Debug.Log($"Auto-saved at {DateTime.Now:h:mm:ss tt}");
             }
         }
-
+        
         [MenuItem("Window/Auto save/Find config")]
         public static void ShowConfig() {
             FetchConfig();
 
-            var configGuids = GetConfigIds();
-            EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<AutoSaveConfig>(AssetDatabase.GUIDToAssetPath(configGuids[0])).GetInstanceID());
+            var path = GetConfigPath();
+            EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<AutoSaveConfig>(path).GetInstanceID());
         }
 
         public override void OnInspectorGUI() {
@@ -86,16 +86,5 @@ namespace Tarodev {
             EditorGUILayout.Space();
             EditorGUILayout.HelpBox("You can move this asset where ever you'd like.\nWith ❤, Tarodev.", MessageType.Info);
         }
-    }
-
-    public class AutoSaveConfig : ScriptableObject {
-        [Tooltip("Enable auto save functionality")]
-        public bool Enabled;
-
-        [Tooltip("The frequency in minutes auto save will activate"), Min(1)]
-        public int Frequency = 1;
-
-        [Tooltip("Log a message every time the scene is auto saved")]
-        public bool Logging;
     }
 }
