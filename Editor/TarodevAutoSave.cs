@@ -62,11 +62,7 @@ namespace Tarodev
         /// save!
         /// </summary>
         private static void FetchAutoSaveConfig()
-        {
-            // TODO: This is a bit dodgy.. but it keeps trying to find a AutoSaveConfig object, and part of that
-            // "finding" attempt via the `GetConfigPath` method will create one. However, we don't know how long that
-            // will take as the file must be created so we sit in a loop until the file is created.
-            
+	{		            
             while (true)
             {
                 // If we already have an AutoSaveConfig then we can exit this method
